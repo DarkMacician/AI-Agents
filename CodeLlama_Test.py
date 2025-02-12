@@ -2,7 +2,7 @@ from transformers import AutoTokenizer, pipeline
 import torch
 
 # Model name (Make sure it's the correct one)
-model_name = "meta-llama/CodeLlama-7b-hf"
+model_name = "codellama/CodeLlama-7b-hf"
 
 # Load tokenizer and model pipeline
 tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=True)
