@@ -4,14 +4,30 @@ import time
 import json
 import re
 from pymongo import MongoClient
-from fastapi import FastAPI, Query
+from fastapi import Query
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 load_dotenv()
-# Initialize FastAPI
+
 app = FastAPI()
+
+# Allowed origins
+origins = [
+    "http://localhost:3000",
+    "https://api.slothai.xyz/"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 client = MongoClient("mongodb+srv://prompt:123@cluster0.admu7.mongodb.net/")
 db = client["MemeTradeCO"]
@@ -89,18 +105,21 @@ def chat_with_gpt4(prompt):
     return None
 
 # Image generation using DALL·E
-def generate_image(prompt):
+def generate_image(prompt, is_regen=False):
     try:
-        found_cryptos = detect_cryptos(prompt)
-        image_prompt = found_cryptos if found_cryptos else prompt
-        new_prompt = ""
-        for i in image_prompt:
-            new_prompt += " and " + i
-        print(f"Generating image for: {new_prompt}")
+        # If called from regenerate_image, use the exact prompt
+        if is_regen:
+            image_prompt = prompt
+        else:
+            # Otherwise, detect cryptos first
+            found_cryptos = detect_cryptos(prompt)
+            image_prompt = " and ".join(found_cryptos) if found_cryptos else prompt
+
+        print(f"Generating image for: {image_prompt}")
 
         response = openai.Image.create(
             model="dall-e-3",
-            prompt=new_prompt,
+            prompt=image_prompt,
             n=1,
             size="1024x1024"
         )
@@ -108,6 +127,7 @@ def generate_image(prompt):
     except Exception as e:
         print(f"Image generation error: {e}")
         return None
+
 
 # Request Body Schema
 class GeneratePostRequest(BaseModel):
@@ -119,7 +139,7 @@ class GeneratePostRequest(BaseModel):
 def generate_post(request: GeneratePostRequest):
     text = chat_with_gpt4(request.prompt)
     if request.image:
-        image_url = generate_image(request.prompt)
+        image_url = generate_image(request.prompt, is_regen=False)
         return {"text": text, "image_url": image_url}
     return {"text": text}
 
@@ -129,8 +149,10 @@ def regenerate_text(prompt: str = Query(..., description="Enter the prompt to re
     text = chat_with_gpt4(prompt)
     return {"text": text}
 
-# Regenerate image endpoint
+class ImageRequest(BaseModel):
+    prompt: str
+
 @app.post("/regenerate_image")
-def regenerate_image(prompt: str = Query(..., description="Enter the prompt to regenerate image")):
-    image_url = generate_image(prompt)
+def regenerate_image(request: ImageRequest):
+    image_url = generate_image(request.prompt, is_regen=True)  # Use exact prompt
     return {"image_url": image_url}

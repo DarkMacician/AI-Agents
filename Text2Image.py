@@ -5,7 +5,6 @@ from io import BytesIO
 import torch
 from diffusers import StableDiffusionPipeline
 import base64
-from PIL import Image
 
 # Initialize the app
 app = FastAPI()
